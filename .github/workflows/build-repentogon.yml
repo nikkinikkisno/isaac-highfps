@@ -9,7 +9,7 @@ jobs:
     runs-on: windows-2022
 
     steps:
-      - name: Checkout REPENTOGON support source
+      - name: Checkout REPENTOGON support
         uses: actions/checkout@v4
         with:
           repository: hunchcldev/isaac-highfps
@@ -20,15 +20,27 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Build 32-bit Windows DLL
+      - name: Diagnose early initialization
+        shell: python
+        run: |
+          from pathlib import Path
+
+          p = Path("src/dllmain.cpp")
+          s = p.read_text(encoding="utf-8")
+
+          old = "GetModuleFileNameA(nullptr, host, MAX_PATH);"
+          new = 'Log("[diagnostic] before GetModuleFileNameA"); GetModuleFileNameA(nullptr, host, MAX_PATH); Log("[diagnostic] after GetModuleFileNameA");'
+
+          assert s.count(old) == 1, "Expected source line not found"
+          p.write_text(s.replace(old, new), encoding="utf-8")
+
+      - name: Build 32-bit DLL
         shell: cmd
         run: call build.bat
 
-      - name: Upload compiled DLL
+      - name: Upload DLL
         uses: actions/upload-artifact@v4
         with:
-          name: isaac-highfps-repentogon
-          path: |
-            build/winmm.dll
-            build/alt/dbghelp.dll
+          name: isaac-highfps-repentogon-diagnostic
+          path: build/winmm.dll
           if-no-files-found: error
